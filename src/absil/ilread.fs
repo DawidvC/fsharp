@@ -1,14 +1,4 @@
-//----------------------------------------------------------------------------
-//
-// Copyright (c) 2002-2012 Microsoft Corporation. 
-//
-// This source code is subject to terms and conditions of the Apache License, Version 2.0. A 
-// copy of the license can be found in the License.html file at the root of this distribution. 
-// By using this source code in any fashion, you are agreeing to be bound 
-// by the terms of the Apache License, Version 2.0.
-//
-// You must not remove this notice, or any other, from this software.
-//----------------------------------------------------------------------------
+// Copyright (c) Microsoft Open Technologies, Inc.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
 
 //---------------------------------------------------------------------
 // The big binary reader
@@ -95,11 +85,6 @@ type MemChannel =
         mc.mcPos <- addr
 
     member mc.Close() = ()
-
-#if SILVERLIGHT
-type MMapChannel = MemChannel
-
-#else
 
 /// Read file from memory mapped files
 module MemoryMapping = 
@@ -241,7 +226,6 @@ type MMapChannel =
     member mc.Seek addr = mc.mmPos <- addr
     
     member mc.Close() = mc.mmMap.Close()
-#endif
 
 //---------------------------------------------------------------------
 // Read file from cached memory blocks or via 'seek'
@@ -349,14 +333,11 @@ let rec countUtf8String is n =
 
 let seekReadUTF8String is addr = 
     seek is addr;
-#if SILVERLIGHT
-#else
     match is with 
     | MMap mc -> 
       // optimized implementation 
       mc.PeekUTF8String()
     | _ -> 
-#endif
     let n = countUtf8String is 0
     let bytes = seekReadBytes is addr (n)
     System.Text.Encoding.UTF8.GetString (bytes, 0, bytes.Length)
@@ -2656,9 +2637,6 @@ and seekReadCustomAttr ctxt (TaggedIndex(cat,idx),b) =
 and seekReadCustomAttrUncached ctxtH (CustomAttrIdx (cat,idx,valIdx)) = 
     let ctxt = getHole ctxtH
     { Method=seekReadCustomAttrType ctxt (TaggedIndex(cat,idx));
-#if SILVERLIGHT
-      Arguments = [], []
-#endif
       Data=
         match readBlobHeapOption ctxt valIdx with
         | Some bytes -> bytes

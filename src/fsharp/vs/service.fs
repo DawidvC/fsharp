@@ -1,13 +1,4 @@
-//----------------------------------------------------------------------------
-// Copyright (c) 2002-2012 Microsoft Corporation. 
-//
-// This source code is subject to terms and conditions of the Apache License, Version 2.0. A 
-// copy of the license can be found in the License.html file at the root of this distribution. 
-// By using this source code in any fashion, you are agreeing to be bound 
-// by the terms of the Apache License, Version 2.0.
-//
-// You must not remove this notice, or any other, from this software.
-//----------------------------------------------------------------------------
+// Copyright (c) Microsoft Open Technologies, Inc.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
 
 // Open up the compiler as an incremental service for parsing,
 // type checking and intellisense-like environment-reporting.
@@ -55,11 +46,7 @@ open ItemDescriptionsImpl
 
 [<AutoOpen>]
 module EnvMisc =
-#if SILVERLIGHT
-    let GetEnvInteger e dflt = dflt
-#else
     let GetEnvInteger e dflt = match System.Environment.GetEnvironmentVariable(e) with null -> dflt | t -> try int t with _ -> dflt
-#endif
     let buildCacheSize   = GetEnvInteger "mFSharp_BuildCacheSize" 3
     let recentForgroundTypeCheckLookupSize = GetEnvInteger "mFSharp_RecentForegroundTypeCheckCacheSize" 5
     let braceMatchCacheSize = GetEnvInteger "mFSharp_BraceMatchCacheSize" 5
@@ -1386,14 +1373,17 @@ module internal Parser =
                 // results in duplication of textual variables. So we ensure we never record two name resolutions 
                 // for the same identifier at the same location.
                 if allowedRange m then 
+                    let keyOpt = match item with
+                                 | Item.Value vref -> Some (endPos, vref.DisplayName)
+                                 | Item.ArgName (id, _, _) -> Some (endPos, id.idText)
+                                 | _ -> None
+
                     let alreadyDone = 
-                        match item with 
-                        | Item.Value vref -> 
-                            let key = (endPos, vref.DisplayName)
+                        match keyOpt with
+                        | Some key ->
                             let res = capturedNameResolutionIdentifiers.Contains key
                             if not res then capturedNameResolutionIdentifiers.Add key |> ignore
                             res
-
                         | _ -> false
                 
                     if not alreadyDone then 
@@ -1743,11 +1733,7 @@ module internal DebuggerEnvironment =
     /// Return the language ID, which is the expression evaluator id that the
     /// debugger will use.
     let GetLanguageID() =
-#if SILVERLIGHT
-        System.Guid(0xAB4F38C9, 0xB6E6s, 0x43bas, 0xBEuy, 0x3Buy, 0x58uy, 0x08uy, 0x0Buy, 0x2Cuy, 0xCCuy, 0xE3uy)
-#else
         System.Guid(0xAB4F38C9u, 0xB6E6us, 0x43baus, 0xBEuy, 0x3Buy, 0x58uy, 0x08uy, 0x0Buy, 0x2Cuy, 0xCCuy, 0xE3uy)
-#endif
         
     
 [<NoComparison>]
@@ -1788,8 +1774,6 @@ type BackgroundCompiler(notifyFileTypeCheckStateIsDirty:NotifyFileTypeCheckState
     let CreateOneIncrementalBuilder (options:CheckOptions) = 
         use t = Trace.Call("Reactor","CreateOneIncrementalBuilder", fun () -> sprintf "options = %+A" options)
         let builder, errorsAndWarnings = 
-            // PROBLEM: This call can currently fail if an error happens while setting up the TcConfig
-            // This leaves us completely horked.
             IncrementalFSharpBuild.IncrementalBuilder.CreateBackgroundBuilderForProjectOptions
                   (scriptClosure.TryGet options, Array.toList options.ProjectFileNames, 
                    Array.toList options.ProjectOptions, options.ProjectDirectory, 

@@ -1,3 +1,5 @@
+// Copyright (c) Microsoft Open Technologies, Inc.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+
 namespace Viz
 
 /// This type exists to have a concrete 'Target' type for a DebuggerVisualizerAttribute.
@@ -26,10 +28,7 @@ module internal MSBuildResolver =
             
     type ResolutionEnvironment = CompileTimeLike | RuntimeLike | DesigntimeLike
     
-#if SILVERLIGHT
-    let HighestInstalledNetFrameworkVersionMajorMinor() =
-        4,"v5.0"
-#else
+
     open System
     open System.Reflection
     open Microsoft.Build.Tasks
@@ -461,5 +460,3 @@ module internal MSBuildResolver =
             referenceCopyLocalPaths = set rootedResults.referenceCopyLocalPaths |> Set.union (set unrootedResults.referenceCopyLocalPaths) |> Set.toArray 
             suggestedBindingRedirects = set rootedResults.suggestedBindingRedirects |> Set.union (set unrootedResults.suggestedBindingRedirects) |> Set.toArray 
         }
-
-#endif

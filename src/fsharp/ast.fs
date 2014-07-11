@@ -1,14 +1,4 @@
-//----------------------------------------------------------------------------
-//
-// Copyright (c) 2002-2012 Microsoft Corporation. 
-//
-// This source code is subject to terms and conditions of the Apache License, Version 2.0. A 
-// copy of the license can be found in the License.html file at the root of this distribution. 
-// By using this source code in any fashion, you are agreeing to be bound 
-// by the terms of the Apache License, Version 2.0.
-//
-// You must not remove this notice, or any other, from this software.
-//----------------------------------------------------------------------------
+// Copyright (c) Microsoft Open Technologies, Inc.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
 
 module internal Microsoft.FSharp.Compiler.Ast
 
@@ -104,12 +94,8 @@ type XmlDoc =
                 let lineAT = lineA.TrimStart([|' '|])
                 if lineAT = "" then processLines rest
                 else if String.hasPrefix lineAT "<" then lines
-                else ["<summary>"] @
-#if SILVERLIGHT
-                     lines @
-#else        
+                else ["<summary>"] @     
                      (lines |> List.map (fun line -> System.Security.SecurityElement.Escape(line))) @
-#endif
                      ["</summary>"]               
 
         let lines = processLines (Array.toList lines)
@@ -2114,14 +2100,17 @@ let rhs2 (parseState: IParseState) i j =
 let rhs parseState i = rhs2 parseState i i 
 
 type IParseState with 
-    member x.GetSynArgNameGenerator() = 
+
+    /// Get the generator used for compiler-generated argument names.
+    member x.SynArgNameGenerator = 
         let key = "SynArgNameGenerator"
         let bls = x.LexBuffer.BufferLocalStore
         if not (bls.ContainsKey key) then  
             bls.[key] <- box (SynArgNameGenerator())
         bls.[key] :?> SynArgNameGenerator
 
-    member x.ResetSynArgNameGenerator() = x.GetSynArgNameGenerator().Reset()
+    /// Reset the generator used for compiler-generated argument names.
+    member x.ResetSynArgNameGenerator() = x.SynArgNameGenerator.Reset()
 
 
 /// XmlDoc F# lexer/parser state, held in the BufferLocalStore for the lexer.

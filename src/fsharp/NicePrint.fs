@@ -1,14 +1,4 @@
-//----------------------------------------------------------------------------
-//
-// Copyright (c) 2002-2012 Microsoft Corporation. 
-//
-// This source code is subject to terms and conditions of the Apache License, Version 2.0. A 
-// copy of the license can be found in the License.html file at the root of this distribution. 
-// By using this source code in any fashion, you are agreeing to be bound 
-// by the terms of the Apache License, Version 2.0.
-//
-// You must not remove this notice, or any other, from this software.
-//----------------------------------------------------------------------------
+// Copyright (c) Microsoft Open Technologies, Inc.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
 
 //--------------------------------------------------------------------------
 // Print Signatures/Types, for signatures, intellisense, quick info, FSI responses
@@ -162,7 +152,7 @@ module private PrintIL =
         | ILType.Byref t            -> layoutILType denv ilTyparSubst t
         | ILType.FunctionPointer t  -> layoutILCallingSignature denv ilTyparSubst None t
         | ILType.TypeVar n            -> List.nth ilTyparSubst (int n)
-        | ILType.Modified (_, _, t) -> layoutILType denv ilTyparSubst t // "Just recurse through them to the contained ILType"--Don
+        | ILType.Modified (_, _, t) -> layoutILType denv ilTyparSubst t // Just recurse through them to the contained ILType
 
     /// Layout a function pointer signature using type-only-F#-style. No argument names are printed.
     and private layoutILCallingSignature denv ilTyparSubst cons (signatur : ILCallingSignature) =
@@ -668,11 +658,11 @@ module private PrintTypes =
         
         if denv.showAttributes then
             // Don't display DllImport attributes in generated signatures  
-            let attrs = attrs |> List.filter (IsMatchingFSharpAttribute denv.g denv.g.attrib_DllImportAttribute >> not)
+            let attrs = attrs |> List.filter (IsMatchingFSharpAttributeOpt denv.g denv.g.attrib_DllImportAttribute >> not)
             let attrs = attrs |> List.filter (IsMatchingFSharpAttributeOpt denv.g denv.g.attrib_ContextStaticAttribute >> not)
             let attrs = attrs |> List.filter (IsMatchingFSharpAttributeOpt denv.g denv.g.attrib_ThreadStaticAttribute >> not)
             let attrs = attrs |> List.filter (IsMatchingFSharpAttribute denv.g denv.g.attrib_EntryPointAttribute >> not)
-            let attrs = attrs |> List.filter (IsMatchingFSharpAttribute denv.g denv.g.attrib_MarshalAsAttribute >> not)
+            let attrs = attrs |> List.filter (IsMatchingFSharpAttributeOpt denv.g denv.g.attrib_MarshalAsAttribute >> not)
             let attrs = attrs |> List.filter (IsMatchingFSharpAttribute denv.g denv.g.attrib_ReflectedDefinitionAttribute >> not)
             let attrs = attrs |> List.filter (IsMatchingFSharpAttribute denv.g denv.g.attrib_StructLayoutAttribute >> not)
             let attrs = attrs |> List.filter (IsMatchingFSharpAttribute denv.g denv.g.attrib_AutoSerializableAttribute >> not)

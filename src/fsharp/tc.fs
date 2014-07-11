@@ -1,14 +1,4 @@
-//----------------------------------------------------------------------------
-//
-// Copyright (c) 2002-2012 Microsoft Corporation. 
-//
-// This source code is subject to terms and conditions of the Apache License, Version 2.0. A 
-// copy of the license can be found in the License.html file at the root of this distribution. 
-// By using this source code in any fashion, you are agreeing to be bound 
-// by the terms of the Apache License, Version 2.0.
-//
-// You must not remove this notice, or any other, from this software.
-//----------------------------------------------------------------------------
+// Copyright (c) Microsoft Open Technologies, Inc.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
 
 /// The typechecker.  Left-to-right constrained type checking 
 /// with generalization at appropriate points.
@@ -1310,7 +1300,7 @@ let MakeAndPublishVal cenv env (altActualParent,inSig,declKind,vrec,(ValScheme(i
     let vis,_ = ComputeAccessAndCompPath env (Some declKind) id.idRange vis actualParent
 
     let inlineFlag = 
-        if HasFSharpAttribute cenv.g cenv.g.attrib_DllImportAttribute attrs then 
+        if HasFSharpAttributeOpt cenv.g cenv.g.attrib_DllImportAttribute attrs then 
             if inlineFlag = ValInline.PseudoVal || inlineFlag = ValInline.Always then 
               errorR(Error(FSComp.SR.tcDllImportStubsCannotBeInlined(),m)) 
             ValInline.Never 
@@ -3133,18 +3123,30 @@ let AnalyzeArbitraryExprAsEnumerable cenv (env: TcEnv) localAlloc m exprty expr 
             else 
                 enumElemTy
 
-        let enumeratorVar,enumeratorExpr = 
-            if isStructTy cenv.g retTypeOfGetEnumerator then 
+        let isEnumeratorTypeStruct = isStructTy cenv.g retTypeOfGetEnumerator
+        let originalRetTypeOfGetEnumerator = retTypeOfGetEnumerator
+
+        let (enumeratorVar,enumeratorExpr), retTypeOfGetEnumerator = 
+            if isEnumeratorTypeStruct then 
                if localAlloc then 
-                  Tastops.mkMutableCompGenLocal m "enumerator" retTypeOfGetEnumerator
+                  Tastops.mkMutableCompGenLocal m "enumerator" retTypeOfGetEnumerator, retTypeOfGetEnumerator
                else
-                  let v,e = Tastops.mkMutableCompGenLocal m "enumerator" (mkRefCellTy cenv.g retTypeOfGetEnumerator)
-                  v,mkRefCellGet cenv.g m retTypeOfGetEnumerator e
+                  let refCellTyForRetTypeOfGetEnumerator = mkRefCellTy cenv.g retTypeOfGetEnumerator
+                  let v,e = Tastops.mkMutableCompGenLocal m "enumerator" refCellTyForRetTypeOfGetEnumerator
+                  (v, mkRefCellGet cenv.g m retTypeOfGetEnumerator e), refCellTyForRetTypeOfGetEnumerator
                   
             else
-               Tastops.mkCompGenLocal m "enumerator" retTypeOfGetEnumerator
+               Tastops.mkCompGenLocal m "enumerator" retTypeOfGetEnumerator, retTypeOfGetEnumerator
             
-        let getEnumExpr  ,getEnumTy  = BuildPossiblyConditionalMethodCall cenv env PossiblyMutates   m false getEnumerator_minfo NormalValUse getEnumerator_minst [exprToSearchForGetEnumeratorAndItem] []
+        let getEnumExpr, getEnumTy  = 
+            let (getEnumExpr, getEnumTy) as res = BuildPossiblyConditionalMethodCall cenv env PossiblyMutates   m false getEnumerator_minfo NormalValUse getEnumerator_minst [exprToSearchForGetEnumeratorAndItem] []
+            if not isEnumeratorTypeStruct || localAlloc then res                
+            else 
+                // wrap enumerators that are represented as mutable structs into ref cells 
+                let getEnumExpr = mkRefCell cenv.g m originalRetTypeOfGetEnumerator getEnumExpr 
+                let getEnumTy = mkRefCellTy cenv.g getEnumTy
+                getEnumExpr, getEnumTy
+
         let guardExpr  ,guardTy      = BuildPossiblyConditionalMethodCall cenv env DefinitelyMutates m false moveNext_minfo      NormalValUse moveNext_minst [enumeratorExpr] []
         let currentExpr,currentTy    = BuildPossiblyConditionalMethodCall cenv env DefinitelyMutates m true get_Current_minfo   NormalValUse get_Current_minst [enumeratorExpr] []
         let betterCurrentExpr  = mkCoerceExpr(currentExpr,enumElemTy,currentExpr.Range,currentTy)
@@ -4316,12 +4318,12 @@ and TcTyparConstraints cenv newOk checkCxs occ env tpenv wcs =
     tpenv
 
 #if EXTENSIONTYPING
-and TcStaticConstantParameter cenv (env:TcEnv) tpenv kind (v:SynType) idOpt =
+and TcStaticConstantParameter cenv (env:TcEnv) tpenv kind (v:SynType) idOpt (tcref:TyconRef) =
     let fail() = error(Error(FSComp.SR.etInvalidStaticArgument(NicePrint.minimalStringOfType env.DisplayEnv kind),v.Range)) 
     let record(ttype) =
         match idOpt with
         | Some id ->
-            let item = Item.ArgName (id, ttype)
+            let item = Item.ArgName (id, ttype, Some(ArgumentContainer.Type(tcref)))
             CallNameResolutionSink cenv.tcSink (id.idRange,env.NameEnv,item,item,ItemOccurence.Use,env.DisplayEnv,env.eAccessRights)
         | _ -> ()
     match v with 
@@ -4376,7 +4378,7 @@ and TcStaticConstantParameter cenv (env:TcEnv) tpenv kind (v:SynType) idOpt =
         v, tpenv'
     | SynType.LongIdent(lidwd) ->
         let m = lidwd.Range
-        TcStaticConstantParameter cenv env tpenv kind (SynType.StaticConstantExpr(SynExpr.LongIdent(false,lidwd,None,m),m)) idOpt
+        TcStaticConstantParameter cenv env tpenv kind (SynType.StaticConstantExpr(SynExpr.LongIdent(false,lidwd,None,m),m)) idOpt tcref
     | _ ->  
         fail()
 
@@ -4419,12 +4421,12 @@ and TcProvidedTypeAppToStaticConstantArgs cenv env optGeneratedTypePath tpenv (t
             let spName = sp.PUntaint((fun sp -> sp.Name), m)
             if i < unnamedArgs.Length then 
                 let v = unnamedArgs.[i]
-                let v, _tpenv = TcStaticConstantParameter cenv env tpenv spKind v None
+                let v, _tpenv = TcStaticConstantParameter cenv env tpenv spKind v None tcref
                 v
             else
                 match namedArgs |> List.filter (fun (n,_) -> n.idText = spName) with 
                 | [(n,v)] -> 
-                    let v, _tpenv = TcStaticConstantParameter cenv env tpenv spKind v (Some n)
+                    let v, _tpenv = TcStaticConstantParameter cenv env tpenv spKind v (Some n) tcref
                     v
                 | [] -> 
                     if sp.PUntaint((fun sp -> sp.IsOptional), m) then
@@ -4826,6 +4828,12 @@ and TcPat warnOnUpper cenv env topValInfo vFlags (tpenv,names,takenNames) ty pat
                             match box result.[idx] with
                             | null -> 
                                 result.[idx] <- pat
+                                let argContainerOpt = match item with
+                                                      | Item.UnionCase uci -> Some(ArgumentContainer.UnionCase(uci))
+                                                      | Item.ExnCase tref -> Some(ArgumentContainer.Type(tref))
+                                                      | _ -> None
+                                let argItem = Item.ArgName (id, (List.nth argtys idx), argContainerOpt)   
+                                CallNameResolutionSink cenv.tcSink (id.idRange,env.NameEnv,argItem,argItem,ItemOccurence.Use,env.DisplayEnv,ad)
                             | _ ->
                                 error(Error(FSComp.SR.tcUnionCaseFieldCannotBeUsedMoreThanOnce(id.idText), id.idRange))
                     for i = 0 to nargtys - 1 do
@@ -5672,7 +5680,7 @@ and TcIndexerThen cenv env overallTy mWholeExpr mDot tpenv wholeExpr e1 indexArg
             // e1.[e2] <- e3
             | SynExpr.DotIndexedSet(_,_,e3,mOfLeftOfSet,_,_) -> 
                 match indexArgs with 
-                | [_] -> DelayedDotLookup([ident(nm,mOfLeftOfSet)],mOfLeftOfSet) :: DelayedApp(ExprAtomicFlag.Atomic,MakeIndexParam None,mOfLeftOfSet) :: MakeDelayedSet(e3,mWholeExpr) :: delayed
+                | [SynIndexerArg.One(_)] -> DelayedDotLookup([ident(nm,mOfLeftOfSet)],mOfLeftOfSet) :: DelayedApp(ExprAtomicFlag.Atomic,MakeIndexParam None,mOfLeftOfSet) :: MakeDelayedSet(e3,mWholeExpr) :: delayed
                 | _ -> DelayedDotLookup([ident("SetSlice",mOfLeftOfSet)],mOfLeftOfSet) :: DelayedApp(ExprAtomicFlag.Atomic,MakeIndexParam (Some e3),mWholeExpr) :: delayed
                 
             | _ -> error(InternalError("unreachable",mWholeExpr))
@@ -7866,8 +7874,12 @@ and TcItemThen cenv overallTy env tpenv (item,mItem,rest,afterOverloadResolution
                         | Some i -> 
                             if box fittedArgs.[i] = null then
                                 fittedArgs.[i] <- arg
-                                let item = Item.ArgName (id, (List.nth argtys i))   
-                                CallNameResolutionSink cenv.tcSink (id.idRange,env.NameEnv,item,item,ItemOccurence.Use,env.DisplayEnv,ad)
+                                let argContainerOpt = match item with
+                                                      | Item.UnionCase uci -> Some(ArgumentContainer.UnionCase(uci))
+                                                      | Item.ExnCase tref -> Some(ArgumentContainer.Type(tref))
+                                                      | _ -> None
+                                let argItem = Item.ArgName (id, (List.nth argtys i), argContainerOpt)   
+                                CallNameResolutionSink cenv.tcSink (id.idRange,env.NameEnv,argItem,argItem,ItemOccurence.Use,env.DisplayEnv,ad)
                             else error(Error(FSComp.SR.tcUnionCaseFieldCannotBeUsedMoreThanOnce(id.idText), id.idRange))
                             currentIndex <- SEEN_NAMED_ARGUMENT
                         | None ->
@@ -8922,30 +8934,45 @@ and TcMethodApplication
                   | NotOptional -> 
                       error(InternalError("Unexpected NotOptional",mItem))
                   | CallerSide dfltVal ->
-                      let rec build = function 
+                      let rec build currCalledArgTy currDfltVal =
+                          match currDfltVal with
                           | MissingValue -> 
                               // Add an I_nop if this is an initonly field to make sure we never recognize it as an lvalue. See mkExprAddrOfExpr. 
-                              emptyPreBinder,mkAsmExpr ([ mkNormalLdsfld (fspec_Missing_Value cenv.g.ilg); AI_nop ],[],[],[calledArgTy],mMethExpr)
+                              emptyPreBinder,mkAsmExpr ([ mkNormalLdsfld (fspec_Missing_Value cenv.g.ilg); AI_nop ],[],[],[currCalledArgTy],mMethExpr)
                           | DefaultValue -> 
-                              emptyPreBinder,mkDefault(mMethExpr,calledArgTy)
+                              emptyPreBinder,mkDefault(mMethExpr,currCalledArgTy)
                           | Constant fieldInit -> 
-                              emptyPreBinder,Expr.Const(TcFieldInit mMethExpr fieldInit,mMethExpr,calledArgTy)  
+                                match currCalledArgTy with
+                                | NullableTy cenv.g inst when fieldInit <> ILFieldInit.Null ->
+                                    let nullableTy = mkILNonGenericBoxedTy(mkILTyRef(cenv.g.ilg.traits.ScopeRef, "System.Nullable`1"))
+                                    let ctor = mkILCtorMethSpecForTy(nullableTy, [ILType.TypeVar 0us]).MethodRef
+                                    let ctorArgs = [Expr.Const(TcFieldInit mMethExpr fieldInit,mMethExpr, inst)]
+                                    emptyPreBinder,Expr.Op(TOp.ILCall(false, false, true, true, NormalValUse, false, false, ctor, [inst], [], [currCalledArgTy]), [], ctorArgs, mMethExpr)
+                                | ByrefTy cenv.g inst ->
+                                    build inst (PassByRef(inst, currDfltVal))
+                                | _ ->
+                                    emptyPreBinder,Expr.Const(TcFieldInit mMethExpr fieldInit,mMethExpr,currCalledArgTy)
                           | WrapperForIDispatch ->
-                              let tref = mkILNonGenericBoxedTy(mkILTyRef(cenv.g.ilg.traits.SystemRuntimeInteropServicesScopeRef.Value, "System.Runtime.InteropServices.DispatchWrapper"))
-                              let mref = mkILCtorMethSpecForTy(tref,[cenv.g.ilg.typ_Object]).MethodRef
-                              let expr = Expr.Op(TOp.ILCall(false,false,false,false,CtorValUsedAsSuperInit,false,false,mref,[],[],[cenv.g.obj_ty]),[],[mkDefault(mMethExpr,calledArgTy)],mMethExpr)
-                              emptyPreBinder,expr
+                              match cenv.g.ilg.traits.SystemRuntimeInteropServicesScopeRef.Value with
+                              | None -> error(Error(FSComp.SR.fscSystemRuntimeInteropServicesIsRequired(), mMethExpr))
+                              | Some assemblyRef ->
+                                  let tref = mkILNonGenericBoxedTy(mkILTyRef(assemblyRef, "System.Runtime.InteropServices.DispatchWrapper"))
+                                  let mref = mkILCtorMethSpecForTy(tref,[cenv.g.ilg.typ_Object]).MethodRef
+                                  let expr = Expr.Op(TOp.ILCall(false,false,false,false,CtorValUsedAsSuperInit,false,false,mref,[],[],[cenv.g.obj_ty]),[],[mkDefault(mMethExpr,currCalledArgTy)],mMethExpr)
+                                  emptyPreBinder,expr
                           | WrapperForIUnknown ->
-                              let tref = mkILNonGenericBoxedTy(mkILTyRef(cenv.g.ilg.traits.SystemRuntimeInteropServicesScopeRef.Value, "System.Runtime.InteropServices.UnknownWrapper"))
-                              let mref = mkILCtorMethSpecForTy(tref,[cenv.g.ilg.typ_Object]).MethodRef
-                              let expr = Expr.Op(TOp.ILCall(false,false,false,false,CtorValUsedAsSuperInit,false,false,mref,[],[],[cenv.g.obj_ty]),[],[mkDefault(mMethExpr,calledArgTy)],mMethExpr)
-                              emptyPreBinder,expr
-                          | PassByRef (ty, dfltVal2) -> 
+                              match cenv.g.ilg.traits.SystemRuntimeInteropServicesScopeRef.Value with
+                              | None -> error(Error(FSComp.SR.fscSystemRuntimeInteropServicesIsRequired(), mMethExpr))
+                              | Some assemblyRef ->
+                                  let tref = mkILNonGenericBoxedTy(mkILTyRef(assemblyRef, "System.Runtime.InteropServices.UnknownWrapper"))
+                                  let mref = mkILCtorMethSpecForTy(tref,[cenv.g.ilg.typ_Object]).MethodRef
+                                  let expr = Expr.Op(TOp.ILCall(false,false,false,false,CtorValUsedAsSuperInit,false,false,mref,[],[],[cenv.g.obj_ty]),[],[mkDefault(mMethExpr,currCalledArgTy)],mMethExpr)
+                                  emptyPreBinder,expr
+                          | PassByRef (ty, dfltVal2) ->
                               let v,_ = mkCompGenLocal mMethExpr "defaultByrefArg" ty
-                              let wrapper2,rhs = build dfltVal2 
+                              let wrapper2,rhs = build currCalledArgTy dfltVal2
                               (wrapper2 >> mkCompGenLet mMethExpr v rhs), mkValAddr mMethExpr (mkLocalValRef v)
-                      build dfltVal
-
+                      build calledArgTy dfltVal
                   | CalleeSide -> 
                       let calledNonOptTy = 
                           if isOptionTy cenv.g calledArgTy then 
@@ -9029,7 +9056,7 @@ and TcMethodApplication
         match assignedArg.NamedArgIdOpt with 
         | None -> ()
         | Some id -> 
-            let item = Item.ArgName (id, assignedArg.CalledArg.CalledArgumentType)
+            let item = Item.ArgName (id, assignedArg.CalledArg.CalledArgumentType, Some(ArgumentContainer.Method(finalCalledMethInfo)))
             CallNameResolutionSink cenv.tcSink (id.idRange,env.NameEnv,item,item,ItemOccurence.Use,env.DisplayEnv,ad))
 
     let allArgsCoerced = List.map coerce  allArgs
@@ -9351,7 +9378,7 @@ and TcNormalizedBinding declKind (cenv:cenv) env tpenv overallTy safeThisValOpt 
             if (not isMutable || isThreadStatic) then 
                 errorR(Error(FSComp.SR.tcVolatileFieldsMustBeMutable(),mBinding))
 
-        if HasFSharpAttribute cenv.g cenv.g.attrib_DllImportAttribute valAttribs then 
+        if HasFSharpAttributeOpt cenv.g cenv.g.attrib_DllImportAttribute valAttribs then 
             if not declKind.CanBeDllImport || (match memberFlagsOpt with Some memberFlags -> memberFlags.IsInstance | _ -> false) then 
                 errorR(Error(FSComp.SR.tcDllImportNotAllowed(),mBinding))
             
@@ -9606,7 +9633,7 @@ and TcAttribute cenv (env: TcEnv) attrTgt (synAttr: SynAttribute)  =
                   namedCallerArgs |> List.map (fun (CallerNamedArg(id,CallerArg(argtyv,m,isOpt,expr))) ->
                     if isOpt then error(Error(FSComp.SR.tcOptionalArgumentsCannotBeUsedInCustomAttribute(),m))
                     let m = expr.Range
-                    let setterItem, _ = ResolveLongIdentInType cenv.tcSink cenv.nameResolver env.NameEnv Nameres.LookupKind.Expr m ad [id] IgnoreOverrides TypeNameResolutionInfo.Default ty
+                    let setterItem, _ = ResolveLongIdentInType cenv.tcSink cenv.nameResolver env.NameEnv LookupKind.Expr m ad [id] IgnoreOverrides TypeNameResolutionInfo.Default ty
                     let nm, isProp, argty = 
                       match setterItem with   
                       | Item.Property (_,[pinfo]) -> 
@@ -12162,7 +12189,7 @@ module TyconBindingChecking = begin
                             // Check to see that local bindings and members don't have the same name and check some other adhoc conditions
                             for bind in binds do 
 
-                                if HasFSharpAttribute cenv.g cenv.g.attrib_DllImportAttribute bind.Var.Attribs && not isStatic then 
+                                if HasFSharpAttributeOpt cenv.g cenv.g.attrib_DllImportAttribute bind.Var.Attribs && not isStatic then 
                                     errorR(Error(FSComp.SR.tcDllImportNotAllowed(),bind.Var.Range))
                                     
                                 let nm = bind.Var.DisplayName
@@ -13461,24 +13488,8 @@ module EstablishTypeDefinitionCores = begin
             // Build up a mapping from System.Type --> TyconRef/ILTypeRef, to allow reverse-mapping
             // of types
 
-            // NOTE: for the purposes of remapping the closure of generated types, the FullName is sufficient.
-            // We do _not_ rely on object identity or any other notion of equivalence provided by System.Type
-            // itself. The mscorlib implementations of System.Type equality relations a very suspect, for
-            // example RuntimeType overrides the equality relation to be reference equality for the Equals(object)
-            // override, but the other subtypes of System.Type do not, making the relation non-reflecive.
-            //
-            // Further, avoiding reliance on canonicalization (UnderlyingSystemType) or System.Type object identity means that 
-            // providers can implement wrap-and-filter "views" over existing System.Type clusters without needing
-            // to preserve object identity when presenting the types to the F# compiler.
-
             let previousContext = (theRootType.PApply ((fun x -> x.Context), m)).PUntaint ((fun x -> x), m)
-            let lookupILTypeRef, lookupTyconRef =
-                match previousContext with
-                | NoEntries -> 
-                    Dictionary<System.Type,ILTypeRef>(providedSystemTypeComparer), Dictionary<System.Type,obj>(providedSystemTypeComparer)
-                | Entries (lookupILTR, lookupILTCR) ->
-                    // REVIEW: do we really need a lazy dict for this? How much time are we saving during remap?
-                    lookupILTR, Lazy.force(lookupILTCR)
+            let lookupILTypeRef, lookupTyconRef = previousContext.GetDictionaries()
                     
             let ctxt = ProvidedTypeContext.Create(lookupILTypeRef, lookupTyconRef)
 

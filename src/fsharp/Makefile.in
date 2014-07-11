@@ -40,16 +40,27 @@ build clean install:
 	$(MAKE) -C FSharp.Core TargetFramework=net20 $@
 	$(MAKE) -C FSharp.Core TargetFramework=monodroid $@
 	$(MAKE) -C FSharp.Core TargetFramework=monotouch $@
-ifeq ("$(pclenabled)", "yes")
+	$(MAKE) -C FSharp.Core FSharpCoreBackVersion=3.0 TargetFramework=net40 $@
+	$(MAKE) -C FSharp.Core FSharpCoreBackVersion=3.0 TargetFramework=net20 $@
+ifeq ("$(pclenabled47)", "yes")
 	$(MAKE) -C FSharp.Core TargetFramework=portable-net45+sl5+win8 $@
+	$(MAKE) -C FSharp.Core FSharpCoreBackVersion=3.0 TargetFramework=portable-net45+sl5+win8 $@
+endif
+ifeq ("$(pclenabled7)", "yes")
+	$(MAKE) -C FSharp.Core TargetFramework=netcore7 $@
+endif
+ifeq ("$(pclenabled78)", "yes")
+	$(MAKE) -C FSharp.Core TargetFramework=netcore78 $@
+endif
+ifeq ("$(pclenabled259)", "yes")
+	$(MAKE) -C FSharp.Core TargetFramework=netcore259 $@
 endif
 
-# Add these to build portable FSharp.Core on Mac 
-# - Requires Mono 3.2.4 or greater
-# - Requires $(MSBuildExtensionsPath32)\Microsoft\Portable\v4.0\Microsoft.Portable.Common.targets
-# - Requires PCL assemblies
+all-monotouch-monodroid:
+	$(MAKE) build-proto
+	$(MAKE) -C FSharp.Core TargetFramework=monodroid build
+	$(MAKE) -C FSharp.Core TargetFramework=monotouch build
 
-#$(MAKE) -C FSharp.Core TargetFramework=portable-net45+sl5+win8 $@
 
 
 

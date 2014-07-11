@@ -1,14 +1,4 @@
-//----------------------------------------------------------------------------
-//
-// Copyright (c) 2002-2012 Microsoft Corporation. 
-//
-// This source code is subject to terms and conditions of the Apache License, Version 2.0. A 
-// copy of the license can be found in the License.html file at the root of this distribution. 
-// By using this source code in any fashion, you are agreeing to be bound 
-// by the terms of the Apache License, Version 2.0.
-//
-// You must not remove this notice, or any other, from this software.
-//----------------------------------------------------------------------------
+// Copyright (c) Microsoft Open Technologies, Inc.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
 
 module internal Microsoft.FSharp.Compiler.AbstractIL.IL
 
@@ -915,9 +905,6 @@ type ILAttribElem =
 type ILAttributeNamedArg =  (string * ILType * bool * ILAttribElem)
 type ILAttribute = 
     { Method: ILMethodSpec;
-#if SILVERLIGHT
-      Arguments: ILAttribElem list * ILAttributeNamedArg list
-#endif
       Data: byte[] }
 
 [<NoEquality; NoComparison>]
@@ -2487,7 +2474,7 @@ type IPrimaryAssemblyTraits =
     abstract ContextStaticAttributeScopeRef : ILScopeRef option
     abstract NonSerializedAttributeScopeRef : ILScopeRef option
 
-    abstract SystemRuntimeInteropServicesScopeRef : Lazy<ILScopeRef>
+    abstract SystemRuntimeInteropServicesScopeRef : Lazy<ILScopeRef option>
     abstract SystemLinqExpressionsScopeRef        : Lazy<ILScopeRef>
     abstract SystemCollectionsScopeRef            : Lazy<ILScopeRef>
     abstract SystemReflectionScopeRef             : Lazy<ILScopeRef>
@@ -4411,9 +4398,6 @@ let mkILCustomAttribMethRef (ilg: ILGlobals) (mspec:ILMethodSpec, fixedArgs: lis
              yield! encodeCustomAttrNamedArg ilg namedArg |]
 
     { Method = mspec;
-#if SILVERLIGHT
-      Arguments = fixedArgs, namedArgs
-#endif
       Data = args }
 
 let mkILCustomAttribute ilg (tref,argtys,argvs,propvs) = 
@@ -4432,7 +4416,7 @@ let mkMscorlibBasedTraits mscorlibRef =
             member this.SerializationInfoTypeScopeRef = ecmaMscorlibScopeRef
             member this.SecurityPermissionAttributeTypeScopeRef = ecmaMscorlibScopeRef
             member this.SystemDiagnosticsDebugScopeRef = lazyRef
-            member this.SystemRuntimeInteropServicesScopeRef = lazyRef
+            member this.SystemRuntimeInteropServicesScopeRef = lazy (Some mscorlibRef)
             member this.IDispatchConstantAttributeScopeRef = ecmaMscorlibScopeRef
             member this.IUnknownConstantAttributeScopeRef = ecmaMscorlibScopeRef
             member this.ContextStaticAttributeScopeRef = ecmaMscorlibScopeRef
@@ -5068,11 +5052,7 @@ let parseILVersion (vstr : string) =
     let version = System.Version(vstr)
     let zero32 n = if n < 0 then 0us else uint16(n)
     // since the minor revision will be -1 if none is specified, we need to truncate to 0 to not break existing code
-#if SILVERLIGHT
-    let minorRevision = if versionComponents.Length < 4 then 0us else uint16(version.Revision)
-#else
-    let minorRevision = if versionComponents.Length < 4 then 0us else uint16(version.MinorRevision)
-#endif    
+    let minorRevision = if version.Revision = -1 then 0us else uint16(version.MinorRevision)   
     (zero32 version.Major, zero32 version.Minor, zero32 version.Build, minorRevision);;
 
 

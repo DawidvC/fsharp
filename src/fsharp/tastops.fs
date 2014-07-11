@@ -1,15 +1,4 @@
-//----------------------------------------------------------------------------
-//
-// Copyright (c) 2002-2012 Microsoft Corporation. 
-//
-// This source code is subject to terms and conditions of the Apache License, Version 2.0. A 
-// copy of the license can be found in the License.html file at the root of this distribution. 
-// By using this source code in any fashion, you are agreeing to be bound 
-// by the terms of the Apache License, Version 2.0.
-//
-// You must not remove this notice, or any other, from this software.
-//----------------------------------------------------------------------------
-
+// Copyright (c) Microsoft Open Technologies, Inc.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
 
 /// Derived expression manipulation and construction functions.
 module internal Microsoft.FSharp.Compiler.Tastops 
@@ -732,6 +721,11 @@ let (|StripNullableTy|) g ty =
     match ty with 
     | AppTy g (tcr,[tyarg]) when tyconRefEq g tcr g.system_Nullable_tcref -> tyarg
     | _ -> ty
+    
+let (|ByrefTy|_|) g ty = 
+    match ty with 
+    | AppTy g (tcr,[tyarg]) when tyconRefEq g tcr g.byref_tcr -> Some tyarg
+    | _ -> None
 
 let mkInstForAppTy g typ = 
     if isAppTy g typ then 
@@ -2525,6 +2519,7 @@ let IsMatchingFSharpAttribute g (AttribInfo(_,tcref)) (Attrib(tcref2,_,_,_,_,_,_
 let HasFSharpAttribute g tref attrs = List.exists (IsMatchingFSharpAttribute g tref) attrs
 let findAttrib g tref attrs = List.find (IsMatchingFSharpAttribute g tref) attrs
 let TryFindFSharpAttribute g tref attrs = List.tryFind (IsMatchingFSharpAttribute g tref) attrs
+let TryFindFSharpAttributeOpt g tref attrs = match tref with None -> None | Some tref -> List.tryFind (IsMatchingFSharpAttribute g tref) attrs
 
 let HasFSharpAttributeOpt g trefOpt attrs = match trefOpt with Some tref -> List.exists (IsMatchingFSharpAttribute g tref) attrs | _ -> false
 let IsMatchingFSharpAttributeOpt g attrOpt (Attrib(tcref2,_,_,_,_,_,_)) = match attrOpt with Some ((AttribInfo(_,tcref))) -> tyconRefEq g tcref  tcref2 | _ -> false
@@ -6788,23 +6783,20 @@ let XmlDocSigOfVal g path (v:Val) =
   let genArity = if arity=0 then "" else sprintf "``%d" arity
   prefix + prependPath path name + genArity + args
   
-let XmlDocSigOfUnionCase path case typeName =
-    // Would like to use "U:", but ParseMemberSignature only accepts C# signatures
-    let prefix = "T:"
-    let path = prependPath path typeName
-    prefix + prependPath path case
-    
-let XmlDocSigOfField path name compiledName =
-    let prefix = "F:"
-    let path = prependPath path compiledName
-    prefix + prependPath path name
+let BuildXmlDocSig prefix paths =  prefix + List.fold prependPath "" paths
 
-let XmlDocSigOfTycon path (tc:Tycon) =  "T:" + prependPath path tc.CompiledName
-let XmlDocSigOfSubModul path = "T:" + path 
+let XmlDocSigOfUnionCase = BuildXmlDocSig "T:" // Would like to use "U:", but ParseMemberSignature only accepts C# signatures
+
+let XmlDocSigOfField     = BuildXmlDocSig "F:"
+
+let XmlDocSigOfProperty  = BuildXmlDocSig "P:"
+
+let XmlDocSigOfTycon     = BuildXmlDocSig "T:"
+
+let XmlDocSigOfSubModul  = BuildXmlDocSig "T:"
 
 let XmlDocSigOfEntity (eref:EntityRef) =
-    XmlDocSigOfTycon (buildAccessPath eref.CompilationPathOpt) eref.Deref
-
+    XmlDocSigOfTycon [(buildAccessPath eref.CompilationPathOpt); eref.Deref.CompiledName]
 
 //--------------------------------------------------------------------------
 // Some unions have null as representations 
@@ -7014,7 +7006,9 @@ let isSealedTy g ty =
    
 let isComInteropTy g ty =
     let tcr,_ = destAppTy g ty
-    TryFindFSharpBoolAttribute g g.attrib_ComImportAttribute tcr.Attribs = Some(true)
+    match g.attrib_ComImportAttribute with
+    | None -> false
+    | Some attr -> TryFindFSharpBoolAttribute g attr tcr.Attribs = Some(true)
   
 let ValSpecIsCompiledAsInstance g (v:Val) =
     match v.MemberInfo with 

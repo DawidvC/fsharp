@@ -1,13 +1,4 @@
-//----------------------------------------------------------------------------
-// Copyright (c) 2002-2012 Microsoft Corporation. 
-//
-// This source code is subject to terms and conditions of the Apache License, Version 2.0. A 
-// copy of the license can be found in the License.html file at the root of this distribution. 
-// By using this source code in any fashion, you are agreeing to be bound 
-// by the terms of the Apache License, Version 2.0.
-//
-// You must not remove this notice, or any other, from this software.
-//----------------------------------------------------------------------------
+// Copyright (c) Microsoft Open Technologies, Inc.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
 
 //----------------------------------------------------------------------------
 // Open up the compiler as an incremental service for parsing,
@@ -44,11 +35,7 @@ open Microsoft.FSharp.Compiler.Nameres
 open ItemDescriptionIcons 
 
 module EnvMisc2 =
-#if SILVERLIGHT
-    let GetEnvInteger e dflt = dflt
-#else
     let GetEnvInteger e dflt = match System.Environment.GetEnvironmentVariable(e) with null -> dflt | t -> try int t with _ -> dflt
-#endif
     let maxMembers   = GetEnvInteger "mFSharp_MaxMembersInQuickInfo" 10
 
     /// dataTipSpinWaitTime limits how long we block the UI thread while a tooltip pops up next to a selected item in an IntelliSense completion list.
@@ -78,6 +65,8 @@ type internal DataTipElement =
     | DataTipElementNone
     /// A single type, method, etc with comment.
     | DataTipElement of (* text *) string * XmlComment
+    /// A parameter of a method.
+    | DataTipElementParameter of string * XmlComment * string
     /// For example, a method overload group.
     | DataTipElementGroup of ((* text *) string * XmlComment) list
     /// An error occurred formatting this element
@@ -300,7 +289,7 @@ module internal ItemDescriptionsImpl =
         | None -> XmlCommentNone
         | Some ccuFileName -> 
             if rfinfo.RecdField.XmlDocSig = "" then
-                rfinfo.RecdField.XmlDocSig <- XmlDocSigOfField "" rfinfo.Name tcref.CompiledRepresentationForNamedType.FullName
+                rfinfo.RecdField.XmlDocSig <- XmlDocSigOfProperty [tcref.CompiledRepresentationForNamedType.FullName; rfinfo.Name]
             XmlCommentSignature (ccuFileName, rfinfo.RecdField.XmlDocSig)            
 
     let GetXmlDocSigOfUnionCaseInfo (ucinfo:UnionCaseInfo) = 
@@ -309,7 +298,7 @@ module internal ItemDescriptionsImpl =
         | None -> XmlCommentNone
         | Some ccuFileName -> 
             if  ucinfo.UnionCase.XmlDocSig = "" then
-                  ucinfo.UnionCase.XmlDocSig <- XmlDocSigOfUnionCase ""  ucinfo.Name tcref.CompiledRepresentationForNamedType.FullName
+                  ucinfo.UnionCase.XmlDocSig <- XmlDocSigOfUnionCase [tcref.CompiledRepresentationForNamedType.FullName; ucinfo.Name]
             XmlCommentSignature (ccuFileName,  ucinfo.UnionCase.XmlDocSig)
 
     let GetXmlDocSigOfMethInfo (infoReader:InfoReader)  m (minfo:MethInfo) = 
@@ -403,6 +392,10 @@ module internal ItemDescriptionsImpl =
 
         | Item.MethodGroup(_,minfo :: _) -> GetXmlDocSigOfMethInfo infoReader  m minfo
         | Item.CtorGroup(_,minfo :: _) -> GetXmlDocSigOfMethInfo infoReader  m minfo
+        | Item.ArgName(_, _, Some argContainer) -> match argContainer with 
+                                                   | ArgumentContainer.Method(minfo) -> GetXmlDocSigOfMethInfo infoReader m minfo
+                                                   | ArgumentContainer.Type(tcref) -> GetXmlDocSigOfEntityRef infoReader m tcref
+                                                   | ArgumentContainer.UnionCase(ucinfo) -> GetXmlDocSigOfUnionCaseInfo ucinfo
         |  _ -> XmlCommentNone
 
     /// Produce an XmlComment with a signature or raw text.
@@ -851,13 +844,22 @@ module internal ItemDescriptionsImpl =
                 DataTipElement(os.ToString(), GetXmlComment (XmlDoc [||]) infoReader m d)
 
         // Named parameters
-        | Item.ArgName (id, argTy) -> 
+        | Item.ArgName (id, argTy, argContainer) -> 
             let _, argTy, _ = PrettyTypes.PrettifyTypes1 g argTy
             let text = bufs (fun os -> 
                           bprintf os "%s %s : " (FSComp.SR.typeInfoArgument()) id.idText 
                           NicePrint.outputTy denv os argTy)
-            let xml = GetXmlComment (XmlDoc [||]) infoReader m d
-            DataTipElement(text, xml)
+
+            let xmldoc = match argContainer with
+                         | Some(ArgumentContainer.Method (minfo)) ->
+                               if minfo.HasDirectXmlComment then minfo.XmlDoc else XmlDoc [||] 
+                         | Some(ArgumentContainer.Type(tcref)) ->
+                               if (tyconRefUsesLocalXmlDoc g.compilingFslib tcref) then tcref.XmlDoc else XmlDoc [||]
+                         | Some(ArgumentContainer.UnionCase(ucinfo)) ->
+                               if (tyconRefUsesLocalXmlDoc g.compilingFslib ucinfo.TyconRef) then ucinfo.UnionCase.XmlDoc else XmlDoc [||]
+                         | _ -> XmlDoc [||]
+            let xml = GetXmlComment xmldoc infoReader m d
+            DataTipElementParameter(text, xml, id.idText)
             
         | Item.SetterArg (_, item) -> 
             FormatItemDescriptionToDataTipElement isDeclInfo infoReader m denv item

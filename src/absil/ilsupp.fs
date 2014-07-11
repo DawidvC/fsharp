@@ -1,13 +1,4 @@
-//----------------------------------------------------------------------------
-// Copyright (c) 2002-2012 Microsoft Corporation. 
-//
-// This source code is subject to terms and conditions of the Apache License, Version 2.0. A 
-// copy of the license can be found in the License.html file at the root of this distribution. 
-// By using this source code in any fashion, you are agreeing to be bound 
-// by the terms of the Apache License, Version 2.0.
-//
-// You must not remove this notice, or any other, from this software.
-//----------------------------------------------------------------------------
+// Copyright (c) Microsoft Open Technologies, Inc.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
 
 module internal Microsoft.FSharp.Compiler.AbstractIL.Internal.Support 
 
@@ -15,13 +6,6 @@ module internal Microsoft.FSharp.Compiler.AbstractIL.Internal.Support
 let DateTime1970Jan01 = new System.DateTime(1970,1,1,0,0,0,System.DateTimeKind.Utc) (* ECMA Spec (Oct2002), Part II, 24.2.2 PE File Header. *)
 let absilWriteGetTimeStamp () = (System.DateTime.UtcNow - DateTime1970Jan01).TotalSeconds |> int
 
-
-#if SILVERLIGHT
-type PdbReader = | NeverImplemented
-let pdbReadClose (_pdb:PdbReader) = ()
-type PdbWriter = | NeverImplemented
-let pdbInitialize (_:string) (_:string) = PdbWriter.NeverImplemented
-#else
 
 open Internal.Utilities
 open Microsoft.FSharp.Compiler.AbstractIL 
@@ -1059,6 +1043,10 @@ let pdbInitialize (binaryName:string) (pdbName:string) =
 [<assembly:System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Reliability", "CA2001:AvoidCallingProblematicMethods", Scope="member", Target="Microsoft.FSharp.Compiler.AbstractIL.Internal.Support.#pdbClose(Microsoft.FSharp.Compiler.AbstractIL.Internal.Support+PdbWriter)", MessageId="System.GC.Collect")>]
 do()
 
+let pdbCloseDocument(documentWriter : PdbDocumentWriter) = 
+    Marshal.ReleaseComObject (documentWriter.symDocWriter)
+    |> ignore
+
 [<System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Reliability", "CA2001:AvoidCallingProblematicMethods", MessageId="System.GC.Collect")>]
 let pdbClose (writer:PdbWriter) =
     writer.symWriter.Close()
@@ -1197,7 +1185,7 @@ let pdbReadOpen (moduleName:string) (path:string) :  PdbReader =
         with _ ->  
             { symReader = null } 
 #else 
-        let symbolBinder = System.Diagnostics.SymbolStore.SymBinder() 
+        let symbolBinder = new System.Diagnostics.SymbolStore.SymBinder() 
         { symReader = symbolBinder.GetReader(importerPtr, moduleName, path) } 
 #endif
     finally
@@ -1502,4 +1490,3 @@ let signerSignFileWithKeyContainer fileName kcName =
     let iclrSN = getICLRStrongName()
     iclrSN.StrongNameSignatureGeneration(fileName, kcName, Unchecked.defaultof<byte[]>, 0u, ppb, &pcb) |> ignore
     iclrSN.StrongNameSignatureVerificationEx(fileName, true, &ok) |> ignore
-#endif

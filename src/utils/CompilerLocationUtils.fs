@@ -1,3 +1,5 @@
+// Copyright (c) Microsoft Open Technologies, Inc.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+
 namespace Internal.Utilities
 open System
 open System.IO
@@ -306,7 +308,7 @@ module internal FSharpEnvironment =
 
 
 #endif // SILVERLIGHT
-#if FX_ATLEAST_45
+#if FX_ATLEAST_45_COMPILER_LOCATION
     // Apply the given function to the registry entry corresponding to the subkey.
     // The reg key is dispoed at the end of the scope.
     let useKey subkey f =

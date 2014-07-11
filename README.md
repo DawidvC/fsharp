@@ -1,4 +1,36 @@
-## F# Compiler, Core Library & Tools (Open Edition)
+## The Open Edition of the F# Compiler, Core Library & Tools
+
+The main purpose of this repository is to package the open editions of the F# compiler, core library 
+and core tools for use across multiple platforms.  
+
+### Contributing to the F# Compiler, Core Library and Tools
+
+Most contributions to the F# compiler/library/tools go first via the  
+repository at http://visualfsharp.codeplex.com.  This ensures that the main
+packaging of F# on Windows (the Visual F# Tools) also includes any contributions that are made, and
+ensures that the versions do not diverge.
+
+If you are using Windows, you should fork that repo and contribute directly there. Your contributions will 
+then be merged into this repo.
+
+If you are using Linux or OSX, you can prepare your contributions by forking this repository (the code is 
+essentially the same). This will give you access to the cross-platform testing 
+available from this repo. At the moment the process is:
+
+1. Fork this repo.
+2. Build and test using the subset of tests available in this repo. If you like, submit a PR to this repo in order to trigger an automatic Travis run, or set up a Travis hook in your fork.
+3. Seek initial review by posting an issue in this repository or http://visualfsharp.codeplex.com. Make it clear you are working on Linux or OSX.
+4. Cherry-pick your changes into a pull request for http://visualfsharp.codeplex.com and submit for final testing and clearance.
+5. The change will then be merged into this repo at a later point.
+
+If you don't have access to Windows in order to run final tests at step 4. If you need help, email fsharp-opensource@googlegroups.com and ask to make a final test run on Windows.
+
+Contributions specifically related to the packaging of the Open Edition should be made here.
+
+
+
+## Status
+
 
 The `master` branch is for the latest version of F# (currently F# 3.1).
 
@@ -14,11 +46,7 @@ F# 3.1 (branch ``fsharp_31``, Mono 3.x, OSX + some unit tests (Travis) [![Build 
 
 F# 3.0 (branch ``fsharp_30``), Mono 3.x, OSX + some unit tests (Travis) [![Build Status](https://travis-ci.org/fsharp/fsharp.png?branch=fsharp_30)](https://travis-ci.org/fsharp/fsharp/branches)
 
-F# 3.1, Mono 3.x (TeamCity) [![Build Status (Mono, TeamCity)][teamcity mono icon]][teamcity mono url]  
-
-F# 3.1, .NET 4.0, Windows (TeamCity) [![Windows .net 4.0 (TeamCity)][teamcity net40 icon]][teamcity net40 url]
-
-F# 3.1, .NET 2.0 etc., Windows (TeamCity) [![Windows .net 2.0 etc.][teamcity net20 icon]][teamcity net20 url]
+Head (branch ``master``), Windows Server 2012 (Appveyor)  [![Build status](https://ci.appveyor.com/api/projects/status/7m5e2yr0snbbr7t9)](https://ci.appveyor.com/project/fsgit/fsharp)
 
 ## Build Requirements
 
@@ -75,7 +103,9 @@ Portable Profile47 (net45+sl5+win8), XNA 4.0 for Xbox 360, and Silverlight 5.0 p
 ```
 msbuild fsharp-library-build.proj /p:TargetFramework=net20 /p:Configuration=Release
 msbuild fsharp-library-build.proj /p:TargetFramework=portable-net45+sl5+win8 /p:Configuration=Release
-msbuild fsharp-library-build.proj /p:TargetFramework=portable-windows8+net45 /p:Configuration=Release
+msbuild fsharp-library-build.proj /p:TargetFramework=netcore7 /p:Configuration=Release
+msbuild fsharp-library-build.proj /p:TargetFramework=netcore78 /p:Configuration=Release
+msbuild fsharp-library-build.proj /p:TargetFramework=netcore259 /p:Configuration=Release
 msbuild fsharp-library-build.proj /p:TargetFramework=sl5 /p:Configuration=Release
 
 msbuild fsharp-library-build.proj /p:TargetFramework=monodroid /p:Configuration=Release
@@ -85,7 +115,6 @@ msbuild fsharp-library-build.proj /p:TargetFramework=net40-xna40-xbox360 /p:Conf
 You can also build the FSharp.Core and FSharp.Compiler.Silverlight.dll for Silverlight 5.0:
 ```
 msbuild fsharp-library-build.proj /p:TargetFramework=sl5-compiler  /p:Configuration=Release
-msbuild fsharp-compiler-build.proj /p:TargetFramework=sl5-compiler /p:Configuration=Release
 ```
 Change to ``` /p:Configuration=Debug``` for debug binaries.
 
@@ -95,12 +124,6 @@ version number suitable for use when building libaries that have usable with bot
 msbuild fsharp-library-build.proj /p:TargetFramework=net20 /p:Configuration=Release /p:FSharpCoreBackVersion=3.0
 msbuild fsharp-library-build.proj /p:TargetFramework=net40 /p:Configuration=Release /p:FSharpCoreBackVersion=3.0
 msbuild fsharp-library-build.proj /p:TargetFramework=portable-net45+sl5+win8 /p:Configuration=Release /p:FSharpCoreBackVersion=3.0
-msbuild fsharp-library-build.proj /p:TargetFramework=portable-windows8+net45 /p:Configuration=Release /p:FSharpCoreBackVersion=3.0
-msbuild fsharp-library-build.proj /p:TargetFramework=sl5 /p:Configuration=Release /p:FSharpCoreBackVersion=3.0
-
-msbuild fsharp-library-build.proj /p:TargetFramework=monodroid /p:Configuration=Release /p:FSharpCoreBackVersion=3.0
-msbuild fsharp-library-build.proj /p:TargetFramework=monotouch /p:Configuration=Release /p:FSharpCoreBackVersion=3.0
-msbuild fsharp-library-build.proj /p:TargetFramework=net40-xna40-xbox360 /p:Configuration=Release /p:FSharpCoreBackVersion=3.0
 ```
 
 ### Windows, using xbuild (e.g. if no .NET is installed and only Mono 3.0 is installed):
@@ -161,17 +184,21 @@ plus scripts
 
 ## Development Notes
 
+### Integrating changes from 'visualfsharp'
+
+To integrate latest changes from https://git01.codeplex.com/visualfsharp, use
+
+git remote add visualfsharp https://git01.codeplex.com/visualfsharp
+git pull visualfsharp master
+
+
 ### Continuous Integration Build 
 
-A continuous integration build is set up with the JetBrains/Teamcity server as part of the F# community projects there:
+A continuous integration build is set up with Travis. See above.
 
-http://teamcity.codebetter.com/project.html?projectId=project61&tab=projectOverview
+### Editing the Compiler with Visual Studio, Xamarin Studio or MonoDevelop
 
-[@forki](https://github.com/forki) controls access. Presently this builds both a Mono `make install`  and a Windows `cd src; msbuild fsharp-build.proj` build.  No binaries are saved from the build, it is just for sanity checking.
-
-### Editing the Compiler with Visual Studio or MonoDevelop
-
-Open `all-vs2012.sln`, and edit in modes Debug or Release. The compiler takes a good while to compile and that
+Open `all-vs2013.sln`, and edit in modes Debug or Release. The compiler takes a good while to compile and that
 can be a bit invasive to the work flow, so it's normally better to do the actual compilation from 
 the command line, see above.
 
@@ -179,7 +206,7 @@ Historically it is difficult to edit the compiler with Xamarin Studio or MonoDev
 
 ## How to Test and Validate
 
-### Linux
+### Linux and OSX
 
 Only a subset of the tests are currently enabled.
 
@@ -191,68 +218,17 @@ cd tests/fsharp/core
 
 ### Windows
 
-There are language tests under `tests\fsharp\core`. The test apparatus is primitive and unfortunately uses batch.
-Set up a shell (release mode):
-
-```
-cd tests
-run40.bat   
-ngen install ..\lib\release\fsc.exe
-ngen install ..\lib\release\fsi.exe
-```
-Run the tests:
-```
-.\build-and-run.bat
-```
-Examine `build-and-run.log`. This will contain one entry for each test directory, plus any reported errors.
-
-```
-tests\fsharp\core
-tests\fsharp\core\queriesCustomQueryOps
-tests\fsharp\core\queriesLeafExpressionConvert
-tests\fsharp\core\queriesNullableOperators
-tests\fsharp\core\queriesOverIEnumerable
-...
-```
-
-Some tests for LINQ queries require SQL Server be installed. A failing test will look like this:
-
-```
-ERRORLEVEL=1: in tests\fsharp\core\csfromfs\build.bat
-```
-
-You can then go to the relevant directory and run `build.bat` and `run.bat`.
-
-### F# Core Unit Tests for .NET 4.x (optional)
-
-This uses the proto compiler to build the unit tests that check some parts of `FSharp.Core.dll` and `FSharp.Compiler.dll`. There is also another set of tests under `tests\fsharp`.
-
-```
-msbuild fsharp-library-unittests-build.proj /p:TargetFramework=net40
-```
-
-*Note: You must have [NUnit](http://www.nunit.org/) installed to build the unit tests.*
-
-### How to Validate
-
-Here are some simple tests to validate what you have built by checking `fsi.exe` (F# Interactive) starts up:
-
-```
-lib\debug\4.0\fsi.exe
-1 + 1;;
-\#q;;
-lib\debug\4.0\fsi.exe /help
-lib\debug\4.0\fsc.exe /help
-echo printfn "hello world" > hello.fs
-lib\debug\4.0\fsc.exe hello.fs
-hello.exe
-```
+See the http://visualfsharp.codeplex.com for instructions for how to test on Windows. Use that repository
+to develop and test on Windows.
 
 ## History 
 
-F# compiler sources dropped by Microsoft are available from [fsharppowerpack.codeplex.com](http://fsharppowerpack.codeplex.com).
+F# compiler sources as initially dropped are available from [fsharppowerpack.codeplex.com](http://fsharppowerpack.codeplex.com).
 
-Uses bootstrapping libraries, tools and F# compiler. The `lib/bootstrap/X.0` directories contain mono-built libraries, compiler and tools that can be used to bootstrap a build. You can also supply your own via the `--with-bootstrap` option.
+On 4 April 2014, Microsoft Open Tech published the F# compiler sources  at http://visualfsharp.codeplex.com and began
+accepting contributions to the F# compiler/library and tools.  This repository is a modified version of that.
+
+This repository uses bootstrapping libraries, tools and F# compiler. The `lib/bootstrap/X.0` directories contain mono-built libraries, compiler and tools that can be used to bootstrap a build. You can also supply your own via the `--with-bootstrap` option.
 
 ### Wheezy build
 
@@ -266,9 +242,3 @@ make
 sudo make install
 ```
 
-[teamcity mono icon]: http://teamcity.codebetter.com/app/rest/builds/buildType:(id:bt814)/statusIcon
-[teamcity mono url]: http://teamcity.codebetter.com/viewType.html?buildTypeId=bt814&guest=1
-[teamcity net40 icon]: http://teamcity.codebetter.com/app/rest/builds/buildType:(id:bt817)/statusIcon
-[teamcity net40 url]: http://teamcity.codebetter.com/viewType.html?buildTypeId=bt817&guest=1
-[teamcity net20 icon]: http://teamcity.codebetter.com/app/rest/builds/buildType:(id:bt827)/statusIcon
-[teamcity net20 url]: http://teamcity.codebetter.com/viewType.html?buildTypeId=bt827&guest=1

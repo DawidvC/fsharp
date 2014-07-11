@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright (c) Microsoft Open Technologies, Inc.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information. -->
 <Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <FSharpSourcesRoot>$(MSBuildProjectDirectory)\..\..</FSharpSourcesRoot>
@@ -11,8 +12,6 @@
     <OutputType>Library</OutputType>
     <AssemblyName>FSharp.Core</AssemblyName>
     <DefineConstants>RUNTIME;$(DefineConstants)</DefineConstants>
-    <DefineConstants Condition=" '$(TargetFramework)'=='sl5-compiler'">EXTRAS_FOR_SILVERLIGHT_COMPILER;$(DefineConstants)</DefineConstants>
-    <OtherFlags Condition=" '$(TargetFramework)'=='sl5-compiler'">$(OtherFlags) --nodebugdata</OtherFlags>
     <NoWarn>44;45;55;62;75;1204</NoWarn>
     <BaseAddress>0x05000000</BaseAddress>
     <CompilingFsLib>true</CompilingFsLib>
@@ -24,8 +23,8 @@
     <OtherFlags Condition=" '$(TargetFramework)'=='net40'">$(OtherFlags) --compiling-fslib-40</OtherFlags>	
   </PropertyGroup>
   <!-- MonoDevelop likes these here to recognise the configurations -->
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x86' " />
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x86' " />
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' " />
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' " />
   <ItemGroup>
     <EmbeddedResource Include="FSCore.resx">
       <Link>FSCore.resx</Link>
@@ -123,6 +122,18 @@
     <Compile Include="event.fs">
       <Link>Event/event.fs</Link>
     </Compile>
+    <Compile Include="math\n.fsi">
+      <Link>Numerics/n.fsi</Link>
+    </Compile>
+    <Compile Include="math\n.fs">
+      <Link>Numerics/n.fs</Link>
+    </Compile>
+    <Compile Include="math\z.fsi">
+      <Link>Numerics/z.fsi</Link>
+    </Compile>
+    <Compile Include="math\z.fs">
+      <Link>Numerics/z.fs</Link>
+    </Compile>
     <Compile Include="..\..\utils\sformat.fsi">
       <Link>Printf/sformat.fsi</Link>
     </Compile>
@@ -174,18 +185,6 @@
     <Compile Include="SI.fs">
       <Link>Units/SI.fs</Link>
     </Compile>
-    <Compile Include="math\n.fsi">
-      <Link>Numerics/n.fsi</Link>
-    </Compile>
-    <Compile Include="math\n.fs">
-      <Link>Numerics/n.fs</Link>
-    </Compile>
-    <Compile Include="math\z.fsi">
-      <Link>Numerics/z.fsi</Link>
-    </Compile>
-    <Compile Include="math\z.fs">
-      <Link>Numerics/z.fs</Link>
-    </Compile>
     <Compile Include="fslib-extra-pervasives.fsi">
       <Link>Extras/fslib-extra-pervasives.fsi</Link>
     </Compile>
@@ -200,13 +199,42 @@
     </CustomAdditionalCompileInputs>
   </ItemGroup>
   <ItemGroup>
-    <Reference Include="mscorlib" Condition="'$(TargetFramework)' != 'wp7' AND '$(TargetFramework)' != 'portable-windows8+net45' " />
-    <Reference Include="System.Runtime" Condition="'$(TargetFramework)' == 'portable-windows8+net45' " />
-    <Reference Include="System" />
-    <Reference Include="System.Numerics" Condition="'$(TargetFramework)' == 'net40'" />
-    <Reference Include="System.Net" Condition="'$(TargetFramework)' == 'sl5' OR '$(TargetFramework)' == 'sl5-compiler' OR '$(TargetFramework)' == 'XNA\5.0' OR '$(TargetFramework)' == 'wp7' OR '$(TargetFramework)' == 'portable-net45+sl5+win8' OR '$(TargetFramework)' == 'net40-xna40-xbox360' OR '$(TargetFramework)' == 'portable-windows8+net45'" />
-    <Reference Include="System.Observable" Condition="'$(TargetFramework)' == 'wp7' " />
-    <Reference Include="System.Core" Condition="'$(TargetFramework)' == 'sl5' OR '$(TargetFramework)' == 'sl5-compiler' OR '$(TargetFramework)' == 'XNA\5.0' OR '$(TargetFramework)' == 'wp7' OR '$(TargetFramework)' == 'portable-net45+sl5+win8' OR '$(TargetFramework)' == 'net40-xna40-xbox360' OR '$(TargetFramework)' == 'portable-windows8+net45'" />
+    <Reference Include="mscorlib" Condition=" '$(TargetProfile)' != 'netcore' ">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="System">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="System.Runtime" Condition=" '$(TargetProfile)' == 'netcore' " >
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="System.Numerics" Condition="'$(TargetFramework)' == 'net40'" >
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="System.Net" Condition="'$(TargetFramework)' == 'sl5' OR '$(TargetFramework)' == 'sl5-compiler' OR '$(TargetFramework)' == 'XNA\5.0' OR '$(TargetFramework)' == 'wp7' OR '$(TargetFramework)' == 'portable-net45+sl5+win8' OR '$(TargetFramework)' == 'net40-xna40-xbox360' OR '$(TargetFramework)' == 'netcore7'" >
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="System.Observable" Condition="'$(TargetFramework)' == 'wp7' " >
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="System.Core" Condition="'$(TargetFramework)' == 'sl5' OR '$(TargetFramework)' == 'sl5-compiler' OR '$(TargetFramework)' == 'XNA\5.0' OR '$(TargetFramework)' == 'wp7' OR '$(TargetFramework)' == 'portable-net45+sl5+win8' OR '$(TargetFramework)' == 'net40-xna40-xbox360' OR '$(TargetFramework)' == 'netcore7'" >
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="System.Net" Condition="'$(TargetFramework)' == 'sl5' OR 
+                                               '$(TargetFramework)' == 'portable47' OR 
+                                               '$(TargetFramework)' == 'XNA\5.0' OR 
+                                               '$(TargetFramework)' == 'sl3-wp' ">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="System.Observable" Condition="'$(TargetFramework)' == 'sl3-wp' ">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="System.Core" Condition="'$(TargetFramework)' == 'sl5' OR 
+                                               '$(TargetFramework)' == 'portable47' OR 
+                                               '$(TargetFramework)' == 'XNA\5.0' OR 
+                                               '$(TargetFramework)' == 'sl3-wp' ">
+      <Private>false</Private>
+    </Reference>
   </ItemGroup>
   <!-- References -->
   <Import Project="$(FSharpSourcesRoot)\FSharpSource.targets" />

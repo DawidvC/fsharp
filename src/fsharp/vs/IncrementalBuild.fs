@@ -1,3 +1,4 @@
+// Copyright (c) Microsoft Open Technologies, Inc.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
 
 namespace Microsoft.FSharp.Compiler
 #nowarn "57"
@@ -290,9 +291,6 @@ module internal IncrementalBuild =
                             
     /// Action timing
     module Time =     
-#if SILVERLIGHT
-        let Action<'T> taskname slot func : 'T =  func()
-#else
         let sw = new Stopwatch()
         let Action<'T> taskname slot func : 'T= 
             if Trace.ShouldLog("IncrementalBuildWorkUnits") then 
@@ -324,7 +322,6 @@ module internal IncrementalBuild =
                                                             spanGC.[min 2 maxGen])
                 result
             else func()            
-#endif
         
     /// Result of a particular action over the bound build tree
     [<NoEquality; NoComparison>]
@@ -1136,7 +1133,7 @@ module internal IncrementalFSharpBuild =
     type IBEvent =
         | IBEParsed of string // filename
         | IBETypechecked of string // filename
-        | IBENuked
+        | IBEDeleted
 
     let IncrementalBuilderEventsMRU = new FixedLengthMRU<IBEvent>()  
     let GetMostRecentIncrementalBuildEvents(n) = IncrementalBuilderEventsMRU.MostRecentList(n)
@@ -1168,13 +1165,9 @@ module internal IncrementalFSharpBuild =
     /// to enable other requests to be serviced. Yielding means returning a continuation function
     /// (via an Eventually<_> value of case NotYetDone) that can be called as the next piece of work. 
     let maxTimeShareMilliseconds = 
-#if SILVERLIGHT
-        50L
-#else
         match System.Environment.GetEnvironmentVariable("mFSharp_MaxTimeShare") with 
         | null | "" -> 50L
         | s -> int64 s
-#endif
       
     /// Global service state
     type FrameworkImportsCacheKey = (*resolvedpath*)string list * string * (*ClrRoot*)string list* (*fsharpBinaries*)string
@@ -1568,7 +1561,7 @@ module internal IncrementalFSharpBuild =
               )
 #endif        
 
-        do IncrementalBuilderEventsMRU.Add(IBENuked)
+        do IncrementalBuilderEventsMRU.Add(IBEDeleted)
         let buildInputs = ["FileNames", sourceFiles.Length, sourceFiles |> List.map box
                            "ReferencedAssemblies", nonFrameworkAssemblyInputs.Length, nonFrameworkAssemblyInputs |> List.map box ]
 
@@ -1743,7 +1736,7 @@ module internal IncrementalFSharpBuild =
         
             // Sink internal errors and warnings.
             // Q: Why is it ok to ignore these?
-            // jomof: These are errors from the background build of files the user doesn't see. Squiggles will appear in the editted file via the foreground parse\typecheck
+            // These are errors from the background build of files the user doesn't see. Squiggles will appear in the editted file via the foreground parse\typecheck
             let warnSink (exn:PhasedError) = Trace.PrintLine("IncrementalBuild", (exn.ToString >> sprintf "Background warning: %s"))
             let errorSink (exn:PhasedError) = Trace.PrintLine("IncrementalBuild", (exn.ToString >> sprintf "Background error: %s"))
 

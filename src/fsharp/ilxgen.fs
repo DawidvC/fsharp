@@ -1,15 +1,4 @@
-//----------------------------------------------------------------------------
-//
-// Copyright (c) 2002-2012 Microsoft Corporation. 
-//
-// This source code is subject to terms and conditions of the Apache License, Version 2.0. A 
-// copy of the license can be found in the License.html file at the root of this distribution. 
-// By using this source code in any fashion, you are agreeing to be bound 
-// by the terms of the Apache License, Version 2.0.
-//
-// You must not remove this notice, or any other, from this software.
-//----------------------------------------------------------------------------
-
+// Copyright (c) Microsoft Open Technologies, Inc.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
 
 //--------------------------------------------------------------------------
 // The ILX generator. 
@@ -56,11 +45,7 @@ let AddNonUserCompilerGeneratedAttribs g (mdef:ILMethodDef) = addMethodGenerated
 
 let debugDisplayMethodName = "__DebugDisplay"
 
-#if SILVERLIGHT
-let useHiddenInitCode = false
-#else
 let useHiddenInitCode = true
-#endif
 
 //--------------------------------------------------------------------------
 // misc
@@ -789,7 +774,7 @@ let StorageForValRef m (v: ValRef) eenv = StorageForVal m v.Deref eenv
 //-------------------------------------------------------------------------- 
 
 let IsValRefIsDllImport g (vref:ValRef) = 
-    vref.Attribs |> HasFSharpAttribute g g.attrib_DllImportAttribute 
+    vref.Attribs |> HasFSharpAttributeOpt g g.attrib_DllImportAttribute 
 
 let GetMethodSpecForMemberVal amap g memberInfo (vref:ValRef) = 
     let m = vref.Range
@@ -2046,7 +2031,7 @@ and GenAllocRecd cenv cgbuf eenv ctorInfo (tcref,argtys,args,m) sequel =
     match ctorInfo with 
     | RecdExprIsObjInit  -> 
         (args,relevantFields) ||> List.iter2 (fun e f -> 
-                CG.EmitInstr cgbuf (pop 0) (Push [typ]) mkLdarg0; 
+                CG.EmitInstr cgbuf (pop 0) (Push (if tcref.IsStructOrEnumTycon then [ILType.Byref typ] else [typ])) mkLdarg0; 
                 GenExpr cenv cgbuf eenv SPSuppress e Continue;
                 GenFieldStore false cenv cgbuf eenv (mkNestedRecdFieldRef tcref f,argtys,m) discard) 
         // Object construction doesn't generate a true value. 
@@ -2481,9 +2466,6 @@ and GenApp cenv cgbuf eenv (f,fty,tyargs,args,m) sequel =
                   elif useICallVirt then I_callvirt (isTailCall, mspec, None) 
                   else I_call (isTailCall, mspec, None)
 
-#if SILVERLIGHT
-          begin
-#else
           // An F# multi dimension array type "int32[,]" should normally map to the ILDASM type "int32[0...,0...]", just like C#.
           //
           // However, System.Reflection.Emit has a nasty bug that means it can't emit calls to C# generic methods involving multi-dimensional arrays
@@ -2683,7 +2665,6 @@ and GenApp cenv cgbuf eenv (f,fty,tyargs,args,m) sequel =
                   EmitGetLocal cgbuf ilActualRetTy savedVal;
                   GenSequel cenv eenv.cloc cgbuf sequel) // end LocalScope
           else   begin
-#endif // SILVERLIGHT          
               // ok, now we're ready to generate 
               if isSuperInit || isSelfInit then 
                   CG.EmitInstrs cgbuf (pop 0) (Push [mspec.EnclosingType ]) [ mkLdarg0 ] ;
@@ -4874,9 +4855,9 @@ and GenMarshal cenv attribs =
         match cenv.opts.ilxBackend with
         | IlReflectBackend -> attribs
         | IlWriteBackend ->
-            attribs |> List.filter (IsMatchingFSharpAttribute cenv.g cenv.g.attrib_MarshalAsAttribute >> not)
+            attribs |> List.filter (IsMatchingFSharpAttributeOpt cenv.g cenv.g.attrib_MarshalAsAttribute >> not)
 
-    match TryFindFSharpAttribute cenv.g cenv.g.attrib_MarshalAsAttribute attribs with
+    match TryFindFSharpAttributeOpt cenv.g cenv.g.attrib_MarshalAsAttribute attribs with
     | Some (Attrib(_,_,[ AttribInt32Arg unmanagedType ],namedArgs,_,_,m))  -> 
         let decoder = AttributeDecoder namedArgs
         let rec decodeUnmanagedType unmanagedType = 
@@ -4992,16 +4973,16 @@ and GenMarshal cenv attribs =
         None, attribs 
 
 and GenParamAttribs cenv attribs =
-    let inFlag = HasFSharpAttribute cenv.g cenv.g.attrib_InAttribute attribs
+    let inFlag = HasFSharpAttributeOpt cenv.g cenv.g.attrib_InAttribute attribs
     let outFlag = HasFSharpAttribute cenv.g cenv.g.attrib_OutAttribute attribs
-    let optionalFlag = HasFSharpAttribute cenv.g cenv.g.attrib_OptionalAttribute attribs
+    let optionalFlag = HasFSharpAttributeOpt cenv.g cenv.g.attrib_OptionalAttribute attribs
     // Return the filtered attributes. Do not generate In, Out or Optional attributes 
     // as custom attributes in the code - they are implicit from the IL bits for these
     let attribs = 
         attribs 
-        |> List.filter (IsMatchingFSharpAttribute cenv.g cenv.g.attrib_InAttribute >> not)
+        |> List.filter (IsMatchingFSharpAttributeOpt cenv.g cenv.g.attrib_InAttribute >> not)
         |> List.filter (IsMatchingFSharpAttribute cenv.g cenv.g.attrib_OutAttribute >> not)
-        |> List.filter (IsMatchingFSharpAttribute cenv.g cenv.g.attrib_OptionalAttribute >> not)
+        |> List.filter (IsMatchingFSharpAttributeOpt cenv.g cenv.g.attrib_OptionalAttribute >> not)
 
     let Marshal,attribs =  GenMarshal cenv attribs
     inFlag,outFlag,optionalFlag,Marshal,attribs
@@ -5125,7 +5106,7 @@ and ComputeMethodImplAttribs cenv (_v:Val) attrs =
         | _ -> 0x0
 
     let hasPreserveSigAttr = 
-        match TryFindFSharpAttribute cenv.g cenv.g.attrib_PreserveSigAttribute attrs with
+        match TryFindFSharpAttributeOpt cenv.g cenv.g.attrib_PreserveSigAttribute attrs with
         | Some _ -> true
         | _ -> false
     
@@ -5136,7 +5117,7 @@ and ComputeMethodImplAttribs cenv (_v:Val) attrs =
     // (See ECMA 335, Partition II, section 23.1.11 - Flags for methods [MethodImplAttributes]) 
     let attrs = attrs 
                     |> List.filter (IsMatchingFSharpAttribute cenv.g cenv.g.attrib_MethodImplAttribute >> not) 
-                        |> List.filter (IsMatchingFSharpAttribute cenv.g cenv.g.attrib_PreserveSigAttribute >> not)
+                        |> List.filter (IsMatchingFSharpAttributeOpt cenv.g cenv.g.attrib_PreserveSigAttribute >> not)
     let hasPreserveSigImplFlag = ((implflags &&& 0x80) <> 0x0) || hasPreserveSigAttr
     let hasSynchronizedImplFlag = (implflags &&& 0x20) <> 0x0
     let hasNoInliningImplFlag = (implflags &&& 0x08) <> 0x0
@@ -5186,7 +5167,7 @@ and GenMethodForBinding
     // Now generate the code.
 
     let hasPreserveSigNamedArg,ilMethodBody,_hasDllImport = 
-        match TryFindFSharpAttribute cenv.g cenv.g.attrib_DllImportAttribute v.Attribs with
+        match TryFindFSharpAttributeOpt cenv.g cenv.g.attrib_DllImportAttribute v.Attribs with
         | Some (Attrib(_,_,[ AttribStringArg(dll) ],namedArgs,_,_,m))  -> 
             if nonNil tps then error(Error(FSComp.SR.ilSignatureForExternalFunctionContainsTypeParameters(),m)); 
             let hasPreserveSigNamedArg, mbody = GenPInvokeMethod (v.CompiledName,dll,namedArgs)
@@ -5213,7 +5194,7 @@ and GenMethodForBinding
     // Do not generate DllImport attributes into the code - they are implicit from the P/Invoke
     let attrs = 
         v.Attribs 
-            |> List.filter (IsMatchingFSharpAttribute cenv.g cenv.g.attrib_DllImportAttribute >> not)
+            |> List.filter (IsMatchingFSharpAttributeOpt cenv.g cenv.g.attrib_DllImportAttribute >> not)
             |> List.filter (IsMatchingFSharpAttribute cenv.g cenv.g.attrib_CompiledNameAttribute >> not)
             
     let attrsAppliedToGetterOrSetter, attrs = 
@@ -6020,8 +6001,8 @@ and GenTopImpl cenv mgbuf mainInfoOpt eenv (TImplFile(qname, _, mexpr, hasExplic
     // Commit the directed initializations
     if doesSomething then 
         // Create the field to act as the target for the forced initialization. 
-        // jomof: Why do this for the final file?
-        // dsyme: There is no need to do this for a final file with an implicit entry point. For an explicit entry point in lazyInitInfo.
+        // Why do this for the final file?
+        // There is no need to do this for a final file with an implicit entry point. For an explicit entry point in lazyInitInfo.
         let initFieldName = CompilerGeneratedName "init"
         let ilFieldDef = 
             mkILStaticField (initFieldName,cenv.g.ilg.typ_Int32, None, None, ComputeMemberAccess true)

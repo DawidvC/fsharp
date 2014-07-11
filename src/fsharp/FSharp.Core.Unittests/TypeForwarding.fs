@@ -1,3 +1,5 @@
+// Copyright (c) Microsoft Open Technologies, Inc.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+
 // Various tests for Microsoft.FSharp.Core type forwarding
 
 namespace FSharp.Core.Unittests.FSharp_Core.Type_Forwarding
@@ -8,8 +10,6 @@ open NUnit.Framework
 
 #if FX_ATLEAST_PORTABLE
 // TODO named #define ?
-#else
-#if SILVERLIGHT
 #else
 [<TestFixture>]
 type TypeForwardingModule() =
@@ -31,5 +31,4 @@ type TypeForwardingModule() =
             Assert.AreEqual(tupleAssemblyName, mscorlib4AssemblyName)
         | _ -> failwith "Unknown scenario."
         () 
-#endif
 #endif

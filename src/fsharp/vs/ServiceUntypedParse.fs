@@ -1,13 +1,4 @@
-//----------------------------------------------------------------------------
-// Copyright (c) 2002-2012 Microsoft Corporation. 
-//
-// This source code is subject to terms and conditions of the Apache License, Version 2.0. A 
-// copy of the license can be found in the License.html file at the root of this distribution. 
-// By using this source code in any fashion, you are agreeing to be bound 
-// by the terms of the Apache License, Version 2.0.
-//
-// You must not remove this notice, or any other, from this software.
-//----------------------------------------------------------------------------
+// Copyright (c) Microsoft Open Technologies, Inc.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
 
 //----------------------------------------------------------------------------
 // Open up the compiler as an incremental service for parsing,
@@ -176,7 +167,6 @@ type internal UntypedParseInfo(parsed:UntypedParseResults) =
 
                   | SynExpr.ArbitraryAfterError _ 
                   | SynExpr.LongIdent _
-                  | SynExpr.Quote _
                   | SynExpr.LibraryOnlyILAssembly _
                   | SynExpr.LibraryOnlyStaticOptimization _
                   | SynExpr.Null _
@@ -185,6 +175,7 @@ type internal UntypedParseInfo(parsed:UntypedParseResults) =
                   | SynExpr.Const _ -> 
                      ()
 
+                  | SynExpr.Quote(_,_,e,_,_)
                   | SynExpr.TypeTest (e,_,_)
                   | SynExpr.Upcast (e,_,_)
                   | SynExpr.AddressOf (_,e,_,_)

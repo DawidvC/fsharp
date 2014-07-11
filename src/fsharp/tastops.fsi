@@ -1,15 +1,4 @@
-//----------------------------------------------------------------------------
-//
-// Copyright (c) 2002-2012 Microsoft Corporation. 
-//
-// This source code is subject to terms and conditions of the Apache License, Version 2.0. A 
-// copy of the license can be found in the License.html file at the root of this distribution. 
-// By using this source code in any fashion, you are agreeing to be bound 
-// by the terms of the Apache License, Version 2.0.
-//
-// You must not remove this notice, or any other, from this software.
-//----------------------------------------------------------------------------
-
+// Copyright (c) Microsoft Open Technologies, Inc.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
 
 /// Derived expression manipulation and construction functions.
 module internal Microsoft.FSharp.Compiler.Tastops 
@@ -994,6 +983,7 @@ val StripSelfRefCell : TcGlobals * ValBaseOrThisInfo * TType -> TType
 val (|AppTy|_|)   : TcGlobals -> TType -> (TyconRef * TType list) option
 val (|NullableTy|_|)   : TcGlobals -> TType -> TType option
 val (|StripNullableTy|)   : TcGlobals -> TType -> TType 
+val (|ByrefTy|_|)   : TcGlobals -> TType -> TType option
 
 //-------------------------------------------------------------------------
 // Special semantic constraints
@@ -1201,6 +1191,7 @@ val IsMatchingFSharpAttributeOpt   : TcGlobals -> Env.BuiltinAttribInfo option -
 val HasFSharpAttribute             : TcGlobals -> Env.BuiltinAttribInfo -> Attribs -> bool
 val HasFSharpAttributeOpt          : TcGlobals -> Env.BuiltinAttribInfo option -> Attribs -> bool
 val TryFindFSharpAttribute         : TcGlobals -> Env.BuiltinAttribInfo -> Attribs -> Attrib option
+val TryFindFSharpAttributeOpt      : TcGlobals -> Env.BuiltinAttribInfo option -> Attribs -> Attrib option
 val TryFindFSharpBoolAttribute     : TcGlobals -> Env.BuiltinAttribInfo -> Attribs -> bool option
 val TryFindFSharpStringAttribute   : TcGlobals -> Env.BuiltinAttribInfo -> Attribs -> string option
 val TryFindFSharpInt32Attribute    : TcGlobals -> Env.BuiltinAttribInfo -> Attribs -> int32 option
@@ -1265,12 +1256,12 @@ val buildAccessPath : CompilationPath option -> string
 
 val XmlDocArgsEnc : TcGlobals -> Typars * Typars -> TType list -> string
 val XmlDocSigOfVal : TcGlobals -> string -> Val -> string
-val XmlDocSigOfUnionCase : string -> string -> string -> string
-val XmlDocSigOfField : string -> string -> string -> string
-val XmlDocSigOfTycon : string -> Tycon -> string
-val XmlDocSigOfSubModul : string -> string
+val XmlDocSigOfUnionCase : (string list -> string)
+val XmlDocSigOfField : (string list -> string)
+val XmlDocSigOfProperty : (string list -> string)
+val XmlDocSigOfTycon : (string list -> string)
+val XmlDocSigOfSubModul : (string list -> string)
 val XmlDocSigOfEntity : EntityRef -> string
-
 
 //---------------------------------------------------------------------------
 // Resolve static optimizations
